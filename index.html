@@ -123,7 +123,7 @@
                     images = data.files.map(file => ({
                         title: file.name,
                         // Maps file ID to direct web rendering stream link
-                        url: `https://docs.google.com/uc?export=view&id=${file.id}`
+                        url: `https://drive.google.com/thumbnail?id=${file.id}&sz=w1200`
                     }));
                     
                     document.getElementById('statusMessage').innerText = `Successfully loaded ${images.length} images.`;
