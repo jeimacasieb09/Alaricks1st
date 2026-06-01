@@ -120,11 +120,11 @@
                 const data = await response.json();
 
                 if (data.files && data.files.length > 0) {
-                    images = imageFiles.map(file => ({
-                    title: file.name,
-                    // Google's thumbnail link handles cross-origin display perfectly and &sz=w1200 forces high resolution
-                    url: `https://drive.google.com/thumbnail?id=${file.id}&sz=w1200`
-                }));
+                    images = data.files.map(file => ({
+                        title: file.name,
+                        // Maps file ID to direct web rendering stream link
+                        url: `https://docs.google.com/uc?export=view&id=${file.id}`
+                    }));
                     
                     document.getElementById('statusMessage').innerText = `Successfully loaded ${images.length} images.`;
                     document.getElementById('startBtn').style.display = 'inline-block';
