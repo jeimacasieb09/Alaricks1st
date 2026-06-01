@@ -111,30 +111,66 @@
 
         // Fetch files automatically from Google Drive API on load
         async function fetchDriveImages() {
-            // Query filters for images inside your specific folder
+            document.getElementById('statusMessage').innerText = "Scanning folder... Please wait...";
+            
             const query = `'${FOLDER_ID}' in parents and trashed = false`;
-            const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=files(id,name)`;
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            
+            let pageToken = '';
+            let allFiles = [];
 
             try {
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data.files && data.files.length > 0) {
-                    images = data.files.map(file => ({
-                        title: file.name,
-                        // Maps file ID to direct web rendering stream link
-                        url: `https://drive.google.com/thumbnail?id=${file.id}&sz=w1200`
-                    }));
+                // Keep looping as long as Google tells us there are more images left to fetch
+                do {
+                    // Added pageSize=1000 (Max allowed) and dynamic pageToken tracking
+                    let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000`;
                     
-                    document.getElementById('statusMessage').innerText = `Successfully loaded ${images.length} images.`;
-                    document.getElementById('startBtn').style.display = 'inline-block';
-                    renderGrid();
-                } else {
-                    document.getElementById('statusMessage').innerText = "No images found in this folder. Check permissions.";
+                    if (pageToken) {
+                        url += `&pageToken=${pageToken}`;
+                    }
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.error) {
+                        document.getElementById('statusMessage').innerHTML = `
+                            <span style="color: #ef4444; font-weight: bold;">Google API Error:</span><br>
+                            Status: ${data.error.status}<br>
+                            Message: ${data.error.message}
+                        `;
+                        return;
+                    }
+
+                    if (data.files && data.files.length > 0) {
+                        allFiles = allFiles.concat(data.files);
+                    }
+
+                    // If there are more than 1000 items, Google provides this token for the next loop
+                    pageToken = data.nextPageToken; 
+
+                } while (pageToken); // Loop terminates when pageToken is undefined (all files grabbed)
+
+                // Filter out non-image files if there are any
+                const imageFiles = allFiles.filter(file => allowedTypes.includes(file.mimeType));
+
+                if (imageFiles.length === 0) {
+                    document.getElementById('statusMessage').innerText = "Connected to folder, but no JPG/PNG images were found.";
+                    return;
                 }
+
+                // Map all accumulated images to the high-res thumbnail view string
+                images = imageFiles.map(file => ({
+                    title: file.name,
+                    url: `https://drive.google.com/thumbnail?id=${file.id}&sz=w1200`
+                }));
+                
+                document.getElementById('statusMessage').innerText = `Successfully loaded ALL ${images.length} images!`;
+                document.getElementById('startBtn').style.display = 'inline-block';
+                renderGrid();
+
             } catch (error) {
-                console.error("Error fetching from Drive API:", error);
-                document.getElementById('statusMessage').innerText = "Failed to load images. Check your API Key and Folder ID.";
+                console.error(error);
+                document.getElementById('statusMessage').innerText = "Network error. Could not pull all images from Google.";
             }
         }
 
