@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Google Drive Gallery</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 5px; }
+        .controls { margin-bottom: 25px; }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #1d4ed8; }
+        
+        /* Grid Layout */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .gallery-item {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+        .gallery-item .title {
+            padding: 10px;
+            font-size: 14px;
+            text-align: center;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        /* Slideshow Overlay */
+        .slideshow-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.95);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .slideshow-img {
+            max-width: 90%;
+            max-height: 85%;
+            object-fit: contain;
+        }
+        .close-btn {
+            position: absolute;
+            top: 20px; right: 20px;
+            font-size: 30px; color: white; cursor: pointer;
+        }
+        #statusMessage {
+            margin-bottom: 15px;
+            color: #a8a8a8;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Automated Photo Gallery</h1>
+    <p id="statusMessage">Loading images from Google Drive...</p>
+    
+    <div class="controls">
+        <button id="startBtn" onclick="startSlideshow()" style="display:none;">Start Slideshow</button>
+    </div>
+
+    <div class="gallery-grid" id="galleryGrid"></div>
+
+    <div class="slideshow-overlay" id="slideshowOverlay">
+        <span class="close-btn" onclick="closeSlideshow()">&times;</span>
+        <img class="slideshow-img" id="slideshowImg" src="" alt="Slideshow">
+    </div>
+
+    <script>
+        // CONFIGURATION
+        const API_KEY = 'AIzaSyByW4GfgsOVZatRZUrnZ5UnGRoLP28UAG4';
+        const FOLDER_ID = 'https://drive.google.com/drive/folders/1iNKm68uDJzXyWnLHIenAaaKrqS6etemK';
+
+        let images = [];
+        let slideIndex = 0;
+        let slideInterval;
+
+        // Fetch files automatically from Google Drive API on load
+        async function fetchDriveImages() {
+            // Query filters for images inside your specific folder
+            const query = `'${FOLDER_ID}' in parents and trashed = false`;
+            const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=files(id,name)`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.files && data.files.length > 0) {
+                    images = data.files.map(file => ({
+                        title: file.name,
+                        // Maps file ID to direct web rendering stream link
+                        url: `https://docs.google.com/uc?export=view&id=${file.id}`
+                    }));
+                    
+                    document.getElementById('statusMessage').innerText = `Successfully loaded ${images.length} images.`;
+                    document.getElementById('startBtn').style.display = 'inline-block';
+                    renderGrid();
+                } else {
+                    document.getElementById('statusMessage').innerText = "No images found in this folder. Check permissions.";
+                }
+            } catch (error) {
+                console.error("Error fetching from Drive API:", error);
+                document.getElementById('statusMessage').innerText = "Failed to load images. Check your API Key and Folder ID.";
+            }
+        }
+
+        function renderGrid() {
+            const galleryGrid = document.getElementById('galleryGrid');
+            images.forEach(img => {
+                const item = document.createElement('div');
+                item.className = 'gallery-item';
+                item.innerHTML = `
+                    <img src="${img.url}" alt="${img.title}">
+                    <div class="title">${img.title}</div>
+                `;
+                galleryGrid.appendChild(item);
+            });
+        }
+
+        // Slideshow Controls
+        function startSlideshow() {
+            if(images.length === 0) return;
+            const overlay = document.getElementById('slideshowOverlay');
+            overlay.style.display = 'flex';
+            showNextSlide();
+            slideInterval = setInterval(showNextSlide, 3000); // Transitions every 3 seconds
+        }
+
+        function showNextSlide() {
+            const slideshowImg = document.getElementById('slideshowImg');
+            slideshowImg.src = images[slideIndex].url;
+            slideIndex = (slideIndex + 1) % images.length;
+        }
+
+        function closeSlideshow() {
+            document.getElementById('slideshowOverlay').style.display = 'none';
+            clearInterval(slideInterval);
+        }
+
+        // Initialize script
+        window.onload = fetchDriveImages;
+    </script>
+</body>
+</html>
